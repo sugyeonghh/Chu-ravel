@@ -1,5 +1,5 @@
 // Spring Boot API. 오류는 ProblemDetail 의 detail(한국어 문장)을 그대로 Error 메시지로 쓴다.
-// 로그인은 세션 쿠키. 바꾸는 요청에는 XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더로 같이 보낸다.
+// 로그인은 세션 쿠키 (카카오 또는 아이디·비밀번호). 바꾸는 요청에는 XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더로 같이 보낸다.
 import { shrink } from "./util.js";
 
 export const LOGIN_URL = "/oauth2/authorization/kakao";
@@ -17,6 +17,8 @@ async function call(method, url, body) {
     opt.body = JSON.stringify(body);
   }
   if (method !== "GET") {
+    // 로그인 전 화면은 401 만 받아서 쿠키가 아직 없다 → 한 번 받아 온다
+    if (!cookie("XSRF-TOKEN")) await fetch("/api/auth/csrf");
     const xsrf = cookie("XSRF-TOKEN");
     if (xsrf) opt.headers["X-XSRF-TOKEN"] = xsrf;
   }
@@ -58,7 +60,18 @@ export const norm = (r) => ({
 
 export const api = {
   me: () => call("GET", "/api/me"),
+  config: () => call("GET", "/api/config"), // {kakaoJsKey}
   logout: () => call("POST", "/api/logout"),
+  // 프로필 사진 (긴 변 800px 로 줄여서). 둘 다 바뀐 내 여권을 돌려준다
+  changePhoto: async (file) => {
+    const fd = new FormData();
+    fd.append("photo", await shrink(file, 800), "avatar.jpg");
+    return call("PUT", "/api/me/photo", fd);
+  },
+  resetPhoto: () => call("DELETE", "/api/me/photo"),
+  // 아이디·비밀번호. 성공하면 세션이 생기고 내 여권(me 와 같은 모양)이 온다
+  login: (username, password) => call("POST", "/api/auth/login", { username, password }),
+  signup: (username, password, nickname) => call("POST", "/api/auth/signup", { username, password, nickname }),
   // 내 체크인 (code = 지역 코드). 한 칸 안에 기록(사진+글)이 여러 개
   list: () => call("GET", "/api/visits"),
   visit: (code) => call("GET", `/api/visits/${code}`),

@@ -201,6 +201,36 @@ article.post .body{margin-top:16px}
 .world .vs-edge{stroke-width:.6}
 
 /* passport page */
+/* "세계지도 펼치기" (App openWorld, Globe.jsx): 화면은 그대로 두고 여권·공유·팔로잉/팔로워 카드만 차례로 왼쪽으로 지나간다.
+   그 뒤에서 지구본(canvas)이 돌며 다가와 한국에서 멈추고(.spin), 한국 쪽으로 파고들며 평면 세계지도로 바뀐다(.reveal).
+   돌아올 때(.closing)는 거꾸로: 평면 지도가 지구본으로 말리고, 지구본이 돌아서며 멀어지는 동안 카드들이 왼쪽에서 들어온다 */
+.stage{position:relative}
+.stage:is(.opening,.closing){overflow:hidden;height:calc(100vh - var(--topbar))}
+.stage:is(.opening,.closing) .stage-passport{position:absolute;inset:0 0 auto;z-index:5;pointer-events:none}
+.stage:is(.opening,.closing) .stage-passport :is(.book,.card){animation:card-away .7s cubic-bezier(.65,0,.35,1) both}
+.stage.opening .stage-passport .friends > :nth-child(1){animation-delay:.06s}
+.stage.opening .stage-passport .friends > :nth-child(2){animation-delay:.12s}
+.stage.opening .stage-passport .friends > :nth-child(n+3){animation-delay:.18s}
+.stage.closing .stage-passport :is(.book,.card){animation-direction:reverse;animation-delay:.55s}
+.stage.closing .stage-passport .friends > :nth-child(1){animation-delay:.61s}
+.stage.closing .stage-passport .friends > :nth-child(2){animation-delay:.67s}
+.stage.closing .stage-passport .friends > :nth-child(n+3){animation-delay:.73s}
+.stage.opening .stage-world{opacity:0}
+.stage.opening.reveal .stage-world{opacity:1;animation:world-reveal .5s ease-out both}
+.stage.closing .stage-world{animation:world-reveal .4s ease-in reverse both}
+.globe{position:absolute;left:50%;top:50%;z-index:3;width:min(96vmin,760px);aspect-ratio:1;transform:translate(-50%,-50%);
+  pointer-events:none;transition:opacity .5s ease-in,transform .5s ease-in;animation:globe-in .35s ease-out both}
+/* 한국을 가운데 두고 멈추므로 가운데로 키우면 한국으로 파고드는 것처럼 보인다 */
+.stage.reveal .globe{opacity:0;transform:translate(-50%,-50%) scale(2.4)}
+.globe.out{animation:globe-in .3s ease-out both,globe-out .3s ease-in 1.05s forwards}
+@keyframes globe-in{from{opacity:0}}
+@keyframes globe-out{to{opacity:0}}
+@keyframes card-away{
+  0%{transform:none;opacity:1}
+  20%{transform:translateX(24px) rotate(.4deg)}
+  100%{transform:translateX(calc(-100vw - 100%)) rotate(-4deg);opacity:.85}
+}
+@keyframes world-reveal{from{transform:scale(1.06);opacity:0;filter:saturate(.6)}to{transform:none;opacity:1;filter:none}}
 .passport-view{max-width:1000px;margin:0 auto;padding:24px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:20px}
 .book{display:grid;grid-template-columns:1fr 1fr;background:var(--cover);border-radius:22px;padding:12px;gap:4px;
   box-shadow:0 18px 40px rgba(29,52,97,.25)}
@@ -212,6 +242,15 @@ article.post .body{margin-top:16px}
 .page-head b{font-family:var(--f-display);font-weight:400;font-size:17px;letter-spacing:0;color:var(--cover)}
 .id-body{display:flex;gap:18px;align-items:flex-start}
 .id-photo{width:108px;height:136px;border-radius:10px;font-size:44px;border:3px solid #fff;box-shadow:0 0 0 1px var(--page-line),0 4px 10px rgba(0,0,0,.08)}
+.id-photo-edit{display:flex;flex-direction:column;align-items:center;gap:4px;flex:none}
+.id-photo-btn{position:relative;border:0;padding:0;background:none;cursor:pointer;border-radius:10px;display:block}
+.id-photo-btn:disabled{cursor:default}
+.id-photo-hint{position:absolute;left:3px;right:3px;bottom:3px;padding:5px 0;border-radius:0 0 7px 7px;background:rgba(29,52,97,.72);color:#fff;
+  font-size:11px;font-weight:700;opacity:0;transition:opacity .15s}
+.id-photo-btn:hover .id-photo-hint,.id-photo-btn:focus-visible .id-photo-hint,.id-photo-btn:disabled .id-photo-hint{opacity:1}
+@media (hover:none){.id-photo-hint{opacity:1}}
+.id-photo-reset{border:0;background:none;padding:2px 4px;font-size:11px;font-weight:700;color:#9b8a68;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.id-photo-reset:hover{color:var(--ink)}
 .id-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:0;flex:1;min-width:0}
 .id-fields .wide{grid-column:span 2}
 .id-fields dt{font-size:10px;color:#9b8a68;letter-spacing:.03em}
@@ -260,6 +299,15 @@ article.post .body{margin-top:16px}
   font-weight:700;font-size:15px;text-decoration:none;transition:filter .15s}
 .kakao-btn:hover{filter:brightness(.96)}
 .login-error{margin:6px 0 0;font-size:13px;color:#ffb4a8}
+.login .cover{aspect-ratio:auto;min-height:min(492px,calc(100vh - 48px))}
+.login-or{display:flex;align-items:center;gap:10px;width:100%;margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.6)}
+.login-or::before,.login-or::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.22)}
+.id-login{display:flex;flex-direction:column;gap:8px;width:100%}
+.id-login input{width:100%;height:44px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:0 14px}
+.id-login input::placeholder{color:rgba(255,255,255,.55)}
+.id-login input:focus{outline:none;border-color:var(--gold)}
+.id-login .btn{height:46px;border-radius:12px}
+.id-toggle{background:none;border:0;color:var(--gold-soft);font-size:13px;cursor:pointer;padding:4px;text-decoration:underline;text-underline-offset:3px}
 
 /* friends */
 .friends{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start}
@@ -267,6 +315,14 @@ article.post .body{margin-top:16px}
 .share-desc{margin:0 0 12px;font-size:14px;color:var(--ink-soft)}
 .share-row{display:flex;gap:8px;align-items:center;margin-top:8px}
 .share-row code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--paper-2);border-radius:999px;padding:9px 16px;font-size:13px}
+.share-menu{position:relative;flex:none}
+.share-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:190px;display:flex;flex-direction:column;padding:6px;
+  background:var(--paper);border:1.5px solid var(--sea-line);border-radius:14px;box-shadow:0 10px 24px rgba(29,52,97,.16)}
+.share-pop button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:10px 12px;border-radius:10px;font:inherit;font-weight:700;font-size:14px;
+  color:var(--ink);cursor:pointer;text-align:left}
+.share-pop button:hover,.share-pop button:focus-visible{background:var(--paper-2)}
+.share-pop .share-kakao svg{color:#191600;background:#FEE500;border-radius:50%;padding:4px;width:24px;height:24px;flex:none}
+.share-ico{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--paper-2);font-size:13px;flex:none}
 .share-row input{flex:1;min-width:0;border:1.5px solid var(--sea-line);background:var(--paper-2);border-radius:999px;padding:9px 16px}
 .people{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .person{display:flex;align-items:center;gap:8px}

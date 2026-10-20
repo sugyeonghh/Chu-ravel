@@ -42,6 +42,8 @@ server:
 churavel:
   storage:
     photo-dir: ./data/photos
+  kakao:
+    js-key: ${KAKAO_JS_KEY:}   # 카카오톡 공유 (없으면 공유 메뉴에 "링크 복사"만)
 
 ---
 # 로컬 개발: H2 파일 DB (./data/churavel.mv.db). 재시작해도 기록이 남는다.

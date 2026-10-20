@@ -6,6 +6,7 @@ import Ledger from "./Ledger.jsx";
 import Drawer from "./Drawer.jsx";
 import Login, { AFTER_LOGIN } from "./Login.jsx";
 import Passport, { PassportCover } from "./Passport.jsx";
+import GlobeIntro, { loadGlobe } from "./Globe.jsx";
 import Friends from "./Friends.jsx";
 import TopBar from "./TopBar.jsx";
 import { go, useRoute } from "./route.js";
@@ -91,6 +92,8 @@ function FollowGate({ profile, onChange, toast }) {
   );
 }
 
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export default function App() {
   const { data, error } = useMapData();
   const route = useRoute();
@@ -104,6 +107,9 @@ export default function App() {
   const [toastMsg, toast] = useToast();
   const mapRef = useRef();
   const pendingSelect = useRef(null);
+  // "세계지도 펼치기": spin = 여권 카드들이 왼쪽으로 지나가고 지구본이 돌며 다가오는 중, reveal = 지구본이 평면 지도로 바뀌는 중
+  const [opening, setOpening] = useState(false); // false | "spin" | "reveal" (.stage 의 클래스가 된다)
+  const [closing, setClosing] = useState(false); // 세계지도 → 여권: 지도가 지구본으로 말려 멀어지고 카드들이 왼쪽에서 다시 들어오는 중
 
   // 로그인 확인. 공유 링크(#/p/..)로 왔다가 로그인했으면 그 주소로 돌아간다
   useEffect(() => {
@@ -141,6 +147,19 @@ export default function App() {
 
   // 친구 여권 (#/p/여권번호). 내 여권번호면 그냥 내 것
   const who = me && route.who && route.who !== me.passportNo ? route.who : null;
+
+  // 같은 여권의 세계지도에서 여권으로 돌아오면 (경로 표시·뒤로 가기 어느 쪽이든) 여권이 다시 덮인다.
+  // effect 에서 하면 세계지도가 한 번 사라졌다 다시 그려지므로, 그리기 전에 바로 정한다.
+  const [shown, setShown] = useState({ page: route.page, who });
+  if (shown.page !== route.page || shown.who !== who) {
+    setShown({ page: route.page, who });
+    setClosing(shown.page === "world" && route.page === "passport" && shown.who === who && !reducedMotion());
+  }
+  useEffect(() => {
+    if (!closing) return;
+    const t = setTimeout(() => setClosing(false), 1500); // CSS .closing 카드 delay .73s + card-away .7s
+    return () => clearTimeout(t);
+  }, [closing]);
   const loadFriend = useCallback(async (no) => {
     try {
       const profile = await api.traveler(no);
@@ -161,6 +180,12 @@ export default function App() {
     setSelected(pendingSelect.current);
     pendingSelect.current = null;
   }, [route.page, route.code, who]);
+  // 주소가 세계지도로 바뀐 뒤에 여권을 내린다 (그 전에 내리면 여권이 한 번 깜빡 돌아온다)
+  useEffect(() => setOpening(false), [route.page, who]);
+  // 여권·세계지도를 보고 있으면 지구본을 미리 받아 둔다 (어느 쪽으로 가든 지구본이 돈다)
+  useEffect(() => {
+    if (route.page === "passport" || route.page === "world") loadGlobe().catch(() => {});
+  }, [route.page]);
 
   const readOnly = !!who;
   const owner = who ? friend?.profile : me;
@@ -229,12 +254,47 @@ export default function App() {
     history.replaceState(null, "", "/");
   }, []);
 
-  if (me === null) return <Login error={loginError} />;
+  const changePhoto = async (file) => {
+    try {
+      setMe(await api.changePhoto(file));
+      toast("프로필 사진을 바꿨어요");
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  const resetPhoto = async () => {
+    try {
+      setMe(await api.resetPhoto());
+      toast("프로필 사진을 원래대로 돌렸어요");
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+
+  /** 여권 카드들을 왼쪽으로 치우며 지구본을 돌려 한국에서 멈춘 뒤, 밑에 깔아 둔 평면 세계지도로 바꾸고 주소를 바꾼다 */
+  const openWorld = () => {
+    if (opening) return;
+    if (reducedMotion()) return go({ who, page: "world" });
+    scrollTo(0, 0);
+    setOpening("spin");
+  };
+  const globeDone = () => {
+    setOpening("reveal");
+    setTimeout(() => go({ who, page: "world" }), 500); // CSS .reveal 길이
+  };
+
+  if (me === null) return <Login error={loginError} onLogin={setMe} />;
   if (error) return <p className="boot">지도 데이터를 불러오지 못했어요. 새로고침해 보세요.</p>;
   if (!data || me === undefined) return <p className="boot">여권을 펼치는 중…</p>;
 
   const { world, mapped } = data;
   const countryName = code && (world.byId[code]?.n ?? code);
+  const worldMap = () => (
+    <WorldMap world={world} counts={counts} wholeVisits={wholeVisits} mapped={mapped} readOnly={readOnly}
+      onHover={setHovered}
+      onEnterCountry={(cc) => go({ who, page: "country", code: cc })}
+      onPickCountry={openRegion} />
+  );
   let main;
   if (who && !friend?.profile && !friend?.error) {
     main = <p className="boot">여권을 펼치는 중…</p>;
@@ -247,12 +307,7 @@ export default function App() {
   } else if (who && !friend.profile.canView) {
     main = <FollowGate profile={friend.profile} toast={toast} onChange={() => loadFriend(who)} />;
   } else if (route.page === "world") {
-    main = (
-      <WorldMap world={world} counts={counts} wholeVisits={wholeVisits} mapped={mapped} readOnly={readOnly}
-        onHover={setHovered}
-        onEnterCountry={(cc) => go({ who, page: "country", code: cc })}
-        onPickCountry={openRegion} />
-    );
+    main = <div className="stage"><div key="world" className="stage-world">{worldMap()}</div></div>;
   } else if (route.page === "country" && !mapped[code]) {
     main = (
       <div className="passport-view">
@@ -277,11 +332,16 @@ export default function App() {
       </div>
     );
   } else {
+    // 세계지도 화면과 같은 .stage > key="world" 자리에 미리 그려 두어, 주소가 바뀌어도 지도를 다시 만들지 않는다
     main = (
-      <div className="passport-view">
+      <div className={"stage" + (opening ? " opening " + opening : closing ? " closing" : "")}>
+        {(opening || closing) && <div key="world" className="stage-world">{worldMap()}</div>}
+        {opening && <GlobeIntro key="globe" counts={counts} wholeVisits={wholeVisits} onDone={globeDone} />}
+        {closing && <GlobeIntro key="globe-out" direction="out" counts={counts} wholeVisits={wholeVisits} onDone={() => {}} />}
+        <div key="passport" className="stage-passport passport-view">
         <Passport profile={owner} stamps={stamps} isMe={!who}
-          onOpenWorld={() => go({ who, page: "world" })}
-          onOpenCountry={openCountry} />
+          onOpenWorld={openWorld}
+          onOpenCountry={openCountry} onChangePhoto={changePhoto} onResetPhoto={resetPhoto} />
         {who ? (
           <div className="card friend-bar">
             <span>{owner.nickname}님을 팔로우하고 있어요{owner.followsMe ? " · 서로 팔로우" : ""}</span>
@@ -296,6 +356,7 @@ export default function App() {
         ) : (
           <Friends me={me} toast={toast} />
         )}
+        </div>
       </div>
     );
   }

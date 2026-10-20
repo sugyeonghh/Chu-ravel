@@ -18,12 +18,13 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import java.io.IOException;
 
 /**
- * 카카오 OAuth2 로그인 + 세션 쿠키.
+ * 카카오 OAuth2 로그인 또는 아이디·비밀번호 로그인(AccountController) + 세션 쿠키.
  * - 로그인: 프론트가 /oauth2/authorization/kakao 로 보내면 카카오 → /login/oauth2/code/kakao → "/" 로 돌아온다.
  *   브라우저에 카카오 로그인이 남아 있어도 매번 카카오 계정을 다시 묻는다 (prompt=login).
  * - 카카오 토큰은 세션에 둔다 (HttpSessionOAuth2AuthorizedClientRepository). 세션이 사라지면 같이 사라진다.
  * - 로그아웃: 카카오 토큰 만료 → 세션·쿠키 삭제 → Clear-Site-Data 로 브라우저 캐시(사진)·저장소까지 지운다.
- * - /api/** 는 로그인 필요 (지역 코드표만 공개). 로그인 안 했으면 리다이렉트 대신 401 ProblemDetail.
+ * - 아이디 로그인: POST /api/auth/signup·login (JSON) → 같은 세션에 LoginUser 를 넣는다.
+ * - /api/** 는 로그인 필요 (지역 코드표, 공개 설정, 아이디 가입·로그인만 공개). 로그인 안 했으면 리다이렉트 대신 401 ProblemDetail.
  * - CSRF: XSRF-TOKEN 쿠키 → 프론트가 X-XSRF-TOKEN 헤더로 돌려보낸다.
  */
 @Configuration
@@ -49,6 +50,8 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/api/regions")).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/api/auth/**")).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/api/config")).permitAll()
                         .requestMatchers(api).authenticated()
                         .anyRequest().permitAll())
                 .oauth2Login(login -> login
