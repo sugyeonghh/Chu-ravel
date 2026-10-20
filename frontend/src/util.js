@@ -12,7 +12,7 @@ export const fmtDate = (s) => {
 };
 
 /** 올리기 전에 긴 변을 1600px 로 줄여 JPEG 로 바꾼다 */
-export async function shrink(file) {
+export async function shrink(file, max = 1600) {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((ok, no) => {
@@ -21,7 +21,7 @@ export async function shrink(file) {
       i.onerror = no;
       i.src = url;
     });
-    const max = 1600, k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement("canvas");
     c.width = Math.round(img.naturalWidth * k);
     c.height = Math.round(img.naturalHeight * k);

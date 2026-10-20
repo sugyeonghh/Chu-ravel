@@ -17,7 +17,7 @@ const Countries = memo(function Countries({ countries, land }) {
 
 /** 체크인한 지역 수에 따라 진하기를 5단계로 */
 const LEVELS = [1, 2, 5, 10, 20];
-const levelOf = (n) => LEVELS.filter((m) => n >= m).length;
+export const levelOf = (n) => LEVELS.filter((m) => n >= m).length;
 
 /** 지역을 하나라도 체크인한 나라는 지역 수만큼 진하게 칠한다 */
 const Stamped = memo(function Stamped({ counts, byId }) {

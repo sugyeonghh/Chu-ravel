@@ -5,7 +5,8 @@
   "scripts": {
     "gen": "node gen.js",
     "gen:world": "node gen-world.mjs",
-    "gen:countries": "node gen-countries.mjs"
+    "gen:countries": "node gen-countries.mjs",
+    "gen:globe": "node gen-globe.mjs"
   },
   "dependencies": {
     "d3-geo": "3.1.0",

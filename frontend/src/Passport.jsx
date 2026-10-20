@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { fmtDate } from "./util.js";
 
 // 여권: 왼쪽은 신원 정보면, 오른쪽은 입국 도장(체크인한 나라)면.
@@ -57,8 +58,43 @@ export function PassportCover({ profile, children }) {
   );
 }
 
+/** 신원면 사진. 내 여권이면 눌러서 바꾸고, 직접 올린 사진이면 원래대로 되돌린다 */
+function IdPhoto({ profile, editable, onChangePhoto, onResetPhoto }) {
+  const input = useRef();
+  const [busy, setBusy] = useState(false);
+  const photo = <Avatar src={profile.profileImageUrl} name={profile.nickname} className="id-photo" />;
+  if (!editable) return photo;
+
+  const run = async (task) => {
+    setBusy(true);
+    try {
+      await task();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const custom = profile.profileImageUrl?.startsWith("/api/avatars/");
+  return (
+    <div className="id-photo-edit">
+      <button type="button" className="id-photo-btn" disabled={busy} onClick={() => input.current.click()}
+              aria-label="프로필 사진 바꾸기">
+        {photo}
+        <span className="id-photo-hint">{busy ? "올리는 중…" : "사진 바꾸기"}</span>
+      </button>
+      <input type="file" accept="image/*" hidden ref={input} onChange={(e) => {
+        const file = e.target.files[0];
+        e.target.value = "";
+        if (file) run(() => onChangePhoto(file));
+      }} />
+      {custom && (
+        <button type="button" className="id-photo-reset" disabled={busy} onClick={() => run(onResetPhoto)}>원래대로</button>
+      )}
+    </div>
+  );
+}
+
 /** stamps: [{code, name, date(처음 간 날), count(지역 수), total(그 나라 지역 수)}] — 처음 간 순서 */
-export default function Passport({ profile, stamps, isMe, onOpenWorld, onOpenCountry }) {
+export default function Passport({ profile, stamps, isMe, onOpenWorld, onOpenCountry, onChangePhoto, onResetPhoto }) {
   const countryCount = stamps.length;
   const regionCount = stamps.reduce((sum, st) => sum + st.count, 0);
   const [l1, l2] = mrz(profile);
@@ -71,7 +107,7 @@ export default function Passport({ profile, stamps, isMe, onOpenWorld, onOpenCou
           <b>여권 PASSPORT</b>
         </header>
         <div className="id-body">
-          <Avatar src={profile.profileImageUrl} name={profile.nickname} className="id-photo" />
+          <IdPhoto profile={profile} editable={isMe} onChangePhoto={onChangePhoto} onResetPhoto={onResetPhoto} />
           <dl className="id-fields">
             <div><dt>종류 Type</dt><dd>PM</dd></div>
             <div><dt>발행국 Country</dt><dd>KOR</dd></div>

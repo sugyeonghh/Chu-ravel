@@ -12,7 +12,7 @@ export default function TopBar({ me, owner, route, countryName, onLogout }) {
 
   return (
     <nav className="topbar">
-      <a className="logo" href={href({})}>츄레블맵</a>
+      <a className="logo" href={href({})}>츄~♡레블맵</a>
       <ol className="crumbs">
         {crumbs.map((c, i) => (
           <li key={c.key}>

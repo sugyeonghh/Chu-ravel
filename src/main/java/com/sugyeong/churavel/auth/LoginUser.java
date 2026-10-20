@@ -12,6 +12,7 @@ import java.util.Map;
 /**
  * 세션에 담기는 로그인 사용자. 컨트롤러에서 {@code @AuthenticationPrincipal LoginUser me} 로 받는다.
  * 카카오 응답 전체 대신 우리 사용자 id 와 화면에 보여줄 프로필만 들고 있다.
+ * 아이디로 로그인해도 같은 걸 담는다 (AccountController).
  */
 public record LoginUser(Long userId, String nickname, String profileImageUrl) implements OAuth2User, Serializable {
 

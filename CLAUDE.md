@@ -1,8 +1,8 @@
-# 츄레블맵 (Churavel Map)
+# 츄~♡레블맵 (Churavel Map)
 
 여권을 들고 여행하듯, 다녀온 나라와 한국 시·군·구에 사진을 입히고 방문 날짜·블로그 글을 남기는 여행 지도 웹사이트.
 한 지역에 [사진 한 장 + 글] 기록을 여러 개 남기고, 댓글은 기록마다 단다.
-개인 사이드 프로젝트. 카카오 로그인, 사용자마다 자기 여권(지도). 친구를 팔로우(요청 → 수락)하면 친구 지도를 보고 댓글을 단다.
+개인 사이드 프로젝트. 카카오 또는 아이디·비밀번호 로그인, 사용자마다 자기 여권(지도). 친구를 팔로우(요청 → 수락)하면 친구 지도를 보고 댓글을 단다.
 화면 흐름: 여권 → 세계지도 → 나라를 누르면 그 나라 지역 지도. 지역을 하나라도 체크인한 나라에 입국 도장이 찍힌다.
 한국은 230개 시·군·구(229 + 독도), 다른 210개 나라는 1단계 행정구역(일본 47 도도부현, 미국 50주+DC …, 4500여 곳).
 지역 지도가 없는 작은 나라(바티칸, 모나코 …)는 세계지도에서 나라 하나로 체크인한다.
@@ -10,7 +10,6 @@
 ## 명령어
 
 ```bash
-cp .env.example .env        # 처음 한 번: 카카오 REST API 키·Client Secret 채우기 (없으면 서버가 안 뜸)
 ./gradlew bootRun          # API 서버 http://localhost:8080 (local 프로필, H2 파일 DB). 화면은 안 뜬다 (/ 는 404)
 cd frontend && npm run dev   # 개발할 때 여기로 접속: http://localhost:5173 (Vite, /api·/oauth2·/login/oauth2 는 8080 으로 프록시)
 ./gradlew test             # API 통합 테스트 (H2 메모리 DB, 임시 사진 폴더). npm 필요 없음
@@ -19,6 +18,7 @@ cd frontend && npm run dev   # 개발할 때 여기로 접속: http://localhost:
 cd tools/map && npm install && npm run gen        # 한국 지도 데이터 다시 만들기
 cd tools/map && npm run gen:world                 # 세계지도 데이터 다시 만들기
 cd tools/map && npm run gen:countries             # 나라별 지역 지도 다시 만들기 (gen:world 다음에. 원본 40MB 를 cache/ 에 받는다)
+cd tools/map && npm run gen:globe                 # 지구본 연출용 globe.json 다시 만들기
 ```
 
 ## 스택
@@ -35,15 +35,19 @@ cd tools/map && npm run gen:countries             # 나라별 지역 지도 다�
 src/main/java/com/sugyeong/churavel/
   auth/     SecurityConfig, KakaoOAuth2UserService(카카오 → User 가입·갱신·여권번호 발급), LoginUser(세션 principal),
             MeController(GET /api/me), KakaoApi(카카오 토큰 만료), KakaoLogoutHandler. 카카오 토큰은 세션에만 둔다
-  user/     User(kakaoId, 여권번호 passportNo, 닉네임, 프로필 사진), PassportNumbers(M + 숫자 8자리 발급)
+            AccountService·AccountController(아이디·비밀번호 가입·로그인 → 같은 세션에 LoginUser)
+  user/     User(kakaoId 또는 username+passwordHash, 여권번호 passportNo, 닉네임, 카카오 프로필 사진 + 직접 올린 profilePhotoId), PassportNumbers(M + 숫자 8자리 발급),
+            UserColumnMigration(예전 DB 의 kakao_id NOT NULL 풀기, 서버 뜰 때)
   follow/   Follow(follower → followee, PENDING/ACCEPTED), FollowService(canView/requireView, 요청·수락·끊기),
             FollowController(/api/friends), TravelerController(/api/travelers: 남의 여권·지도), Traveler(record)
   comment/  Comment(기록마다 여러 개, ON DELETE CASCADE), CommentService, CommentController(/api/comments)
   region/   Region(code,name,province,country), RegionCatalog(regions.csv + subdivisions.csv + countries.csv), GET /api/regions
   visit/    Visit(체크인, 사용자·칸당 1건) ─ 1:N ─ Entry(기록: 사진 1장 + 제목·본문 + 날짜), VisitService, VisitController,
             EntryMigration(예전 사진1+글1 체크인을 첫 기록으로 옮김, 서버 뜰 때)
-  photo/    Photo(메타, ownerId), PhotoStorage/LocalPhotoStorage(파일), PhotoService, GET /api/photos/{id}
-  common/   NotFoundException, ForbiddenException, ApiExceptionHandler(ProblemDetail)
+  photo/    Photo(메타, ownerId), PhotoStorage/LocalPhotoStorage(파일), PhotoService, GET /api/photos/{id},
+            AvatarService·AvatarController(프로필 사진 바꾸기·원래대로, GET /api/avatars/{id})
+  common/   NotFoundException, ForbiddenException, UnauthorizedException, ApiExceptionHandler(ProblemDetail),
+            ConfigController(GET /api/config: 프론트 공개 설정)
 src/main/resources/
   regions.csv               한국 지역 코드표 (code,name,province) — gen.js
   subdivisions.csv          다른 나라 지역 코드표 (code,name,country) — gen-countries.mjs
@@ -51,14 +55,18 @@ src/main/resources/
 frontend/
   public/data/regions.json  한국 지도 SVG path (id,n,p,d,b,c)
   public/data/provs.json    시·도 경계선
+  public/data/globe.json    지구본 연출용 나라 경계 (경위도, 110m) — gen-globe.mjs
   public/data/world.json    세계지도 {w,h,countries:[{id,n,d,b,c,s(작은 나라=점)}],land(코드 없는 땅)}
   public/data/countries/    나라별 지역 지도 {나라코드}.json {w,h,regions,provs(바깥 경계)} + index.json {나라코드: 지역 수}. 눌렀을 때 받는다
   src/App.jsx               로그인 확인, 지도 데이터, 내/친구 체크인(visits Map), 화면 고르기, 서랍, 토스트
+                            "세계지도 펼치기": 여권 카드들이 왼쪽으로 지나가고 지구본(Globe.jsx)이 돌며 다가와 한국에서 멈춘 뒤, 밑에 깔아 둔 평면 세계지도로 바뀐다 (.stage.opening spin→reveal). 돌아올 때는 지도가 지구본으로 말려 멀어지고 카드가 거꾸로 들어온다(.stage.closing)
+  src/Globe.jsx             지구본 연출 (d3-geo 정사영, canvas, direction in/out). globe.json 은 여권·세계지도 화면에서 미리 받는다
   src/route.js              해시 라우팅: #/ · #/world · #/c/{나라코드}(#/kr = #/c/KR), 친구는 #/p/{여권번호}/… (= 공유 링크)
   src/TopBar.jsx            여권 › 세계지도 › 일본 + 내 사진·로그아웃
-  src/Login.jsx             여권 표지 + 카카오 로그인 (공유 링크로 왔으면 로그인 뒤 그 주소로)
-  src/Passport.jsx          여권 신원면 + 입국 도장면, PassportCover(표지), Avatar
-  src/Friends.jsx           공유 링크, 여권번호로 찾기, 받은 요청·팔로잉·팔로워
+  src/Login.jsx             여권 표지 + 카카오 로그인 (공유 링크로 왔으면 로그인 뒤 그 주소로) + 아이디 로그인·가입
+  src/Passport.jsx          여권 신원면(내 여권이면 사진을 눌러 바꾸기·원래대로) + 입국 도장면, PassportCover(표지), Avatar
+  src/Friends.jsx           공유 링크(공유 → 카카오톡으로 공유 / 링크 복사), 여권번호로 찾기, 받은 요청·팔로잉·팔로워
+  src/kakao.js              카카오톡 공유 (Kakao JS SDK 2.8.4, 처음 누를 때 SRI 붙여 받는다)
   src/WorldMap.jsx          세계지도 (지역 지도가 있는 나라 → 그 나라 지도, 없는 나라 → 나라 하나로 체크인).
                             체크인한 지역 수로 나라 색 5단계 (1 · 2–4 · 5–9 · 10–19 · 20+, CSS --h1~--h5)
   src/MapView.jsx           나라 하나의 지역 지도 (한국 시·군·구, 일본 도도부현 …): 레이어(memo), 호버 lift, Stamp
@@ -78,7 +86,13 @@ tools/map/                  gen.js(한국, muni.json KOSTAT 2013), gen-world.mjs
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/oauth2/authorization/kakao` | 카카오 로그인 시작 (`prompt=login`: 매번 계정 다시 확인) → 성공하면 `/`, 실패하면 `/?login=fail` |
+| GET | `/api/auth/csrf` | `XSRF-TOKEN` 쿠키 받기 (204). 로그인 전에 쿠키가 없을 때 `api.js` 가 부른다 |
+| POST | `/api/auth/signup` | 아이디 가입 JSON `{username(영문 소문자·숫자·_ 4~20자), password(8자~72바이트), nickname(1~20자)}` → 바로 로그인, 내 여권 |
+| POST | `/api/auth/login` | 아이디 로그인 JSON `{username, password}` → 내 여권. 틀리면 401 `"아이디 또는 비밀번호가 맞지 않아요"` |
 | GET | `/api/me` | 내 여권 `{passportNo, nickname, profileImageUrl, issuedOn, relation:"SELF", ...}` (안 했으면 401) |
+| PUT | `/api/me/photo` | 프로필 사진 바꾸기. multipart `photo` (프론트가 긴 변 800px 로 줄임) → 내 여권. 전에 올린 사진은 지운다 |
+| DELETE | `/api/me/photo` | 올린 프로필 사진 지우고 원래대로 (카카오 사진, 없으면 닉네임 첫 글자) → 내 여권 |
+| GET | `/api/avatars/{id}` | 프로필 사진 바이트 (immutable 캐시). 지금 누군가의 프로필 사진인 것만, 로그인한 누구나 |
 | POST | `/api/logout` | 로그아웃 (204). 카카오 토큰 만료 → 세션·쿠키 삭제 → `Clear-Site-Data`(캐시·쿠키·저장소) |
 | GET | `/api/visits` | 내 체크인 요약 목록 `{id, regionCode, country, visitedOn(처음 간 날), photoUrl·title(최근 기록), entryCount, commentCount}` |
 | GET | `/api/visits/{code}` | 한 칸 + `entries:[{id, photoUrl, title, body, visitedOn, commentCount}]` (최근 것부터). code = 한국 시·군·구 코드, 다른 나라 지역 코드(`JPN-1860`), 또는 나라 코드 |
@@ -98,8 +112,9 @@ tools/map/                  gen.js(한국, muni.json KOSTAT 2013), gen-world.mjs
 | POST | `/api/comments` | JSON `{entryId, body}` (500자까지) |
 | DELETE | `/api/comments/{id}` | 내 댓글 또는 내 체크인에 달린 댓글 |
 | GET | `/api/regions` | 지역·나라 코드표 (로그인 없이 공개) |
+| GET | `/api/config` | 프론트 공개 설정 `{kakaoJsKey}` (로그인 없이). 키가 없으면 null → 카카오 공유를 숨긴다 |
 
-`/api/regions` 말고는 모두 로그인 필요 → 안 했으면 401 `"로그인이 필요해요"`. PUT·POST·DELETE 는 `XSRF-TOKEN` 쿠키 값을 `X-XSRF-TOKEN` 헤더로 보내야 한다 (`api.js` 가 처리, 없으면 403).
+`/api/regions`·`/api/config`·`/api/auth/**` 말고는 모두 로그인 필요 → 안 했으면 401 `"로그인이 필요해요"`. PUT·POST·DELETE 는 `XSRF-TOKEN` 쿠키 값을 `X-XSRF-TOKEN` 헤더로 보내야 한다 (`api.js` 가 처리, 없으면 403).
 오류는 모두 `ProblemDetail` JSON. 프론트는 `detail` 을 토스트로 그대로 보여주므로 **detail 은 사용자에게 보여줄 한국어 문장**으로 쓴다.
 
 ## 규칙
@@ -115,7 +130,11 @@ tools/map/                  gen.js(한국, muni.json KOSTAT 2013), gen-world.mjs
 - `open-in-view: false`. 연관 로딩은 `@EntityGraph` 로.
 - 컨트롤러는 `@AuthenticationPrincipal LoginUser me` 로 사용자를 받는다. 내 것은 `userId` 범위 안에서만 조회하고, 남의 것(지도·사진·댓글)은 반드시 `FollowService.requireView/canView` 를 거친다. 남의 사진·체크인은 404, 팔로우 수락 전 지도는 403.
 - 팔로우는 한 방향이다. 내가 팔로우해도 상대가 내 지도를 보려면 따로 요청 → 내가 수락.
+- 아이디 계정과 카카오 계정은 따로다 (연결 안 됨). 비밀번호는 `{bcrypt}` 해시로만 둔다.
+- `profileImageUrl` = 직접 올린 사진(`/api/avatars/{id}`) → 카카오 사진 → null (`User.getProfileImageUrl`). 카카오로 로그인할 때는 카카오 사진만 갱신하고 올린 사진은 그대로 둔다.
+  프로필 사진은 팔로우 전 여권 표지·친구 목록·댓글에도 보여서 기록 사진(`/api/photos`, 팔로워만)과 따로 연다.
 - 여권번호(`M` + 8자리)는 공개 id 다. 내부 id(`users.id`)는 API 에 내보내지 않는다.
+- 카카오톡 공유용 JavaScript 키는 `KAKAO_JS_KEY`(공개 키, `/api/config` 로 내려감). 카카오 디벨로퍼스 > 플랫폼 > Web 사이트 도메인에 `http://localhost:5173`(+ 배포 도메인)을 넣어야 공유 링크가 열린다.
 - 비밀값(카카오 키)은 `.env`(git 제외) 또는 환경변수. `application.yml` 이 `optional:file:.env[.properties]` 로 읽는다.
 - 카카오 디벨로퍼스 Redirect URI: `http://localhost:5173/login/oauth2/code/kakao`, `http://localhost:8080/login/oauth2/code/kakao` (+ 배포 도메인).
 - 사용자에게 보이는 문구는 한국어 해요체.

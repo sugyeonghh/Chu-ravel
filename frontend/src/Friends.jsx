@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { Avatar } from "./Passport.jsx";
 import { go } from "./route.js";
+import { shareToKakao } from "./kakao.js";
 
 // 내 여권 아래 친구 패널: 공유 링크, 여권번호로 찾기, 받은 요청, 팔로잉, 팔로워, 보낸 요청
 
@@ -14,6 +15,76 @@ function Person({ t, children }) {
       </button>
       {children}
     </li>
+  );
+}
+
+/** 공유 버튼 → 카카오톡으로 공유 / 링크 복사. 카카오 키가 없으면 복사만 */
+function ShareMenu({ me, link, toast }) {
+  const [open, setOpen] = useState(false);
+  const [kakaoKey, setKakaoKey] = useState(null);
+  const box = useRef();
+
+  useEffect(() => {
+    api.config().then((c) => setKakaoKey(c.kakaoJsKey)).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  const kakao = async () => {
+    setOpen(false);
+    try {
+      await shareToKakao(kakaoKey, {
+        text: `${me.nickname}님의 츄레블맵 여권이에요.\n다녀온 나라와 동네에 찍은 도장을 구경해 보세요!`,
+        url: link,
+        buttonTitle: "여권 펼쳐 보기",
+      });
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  const copy = async () => {
+    setOpen(false);
+    try {
+      await navigator.clipboard.writeText(link);
+      toast("공유 링크를 복사했어요");
+    } catch {
+      toast("복사하지 못했어요. 링크를 길게 눌러 직접 복사해 주세요");
+    }
+  };
+
+  return (
+    <div className="share-menu" ref={box}>
+      <button className="btn primary" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>공유</button>
+      {open && (
+        <div className="share-pop" role="menu">
+          {kakaoKey && (
+            <button role="menuitem" className="share-kakao" onClick={kakao}>
+              <KakaoBubble />카카오톡으로 공유
+            </button>
+          )}
+          <button role="menuitem" onClick={copy}>
+            <span className="share-ico" aria-hidden="true">⧉</span>링크 복사
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KakaoBubble() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="currentColor" d="M9 1.5C4.58 1.5 1 4.32 1 7.8c0 2.25 1.5 4.22 3.75 5.34l-.96 3.5c-.08.3.26.54.52.37l4.17-2.76c.17.01.34.02.52.02 4.42 0 8-2.82 8-6.3S13.42 1.5 9 1.5z" />
+    </svg>
   );
 }
 
@@ -34,15 +105,6 @@ export default function Friends({ me, toast }) {
       toast(e.message);
     }
   };
-  const share = async () => {
-    try {
-      if (navigator.share) await navigator.share({ title: `${me.nickname}님의 츄레블맵 여권`, url: link });
-      else {
-        await navigator.clipboard.writeText(link);
-        toast("공유 링크를 복사했어요");
-      }
-    } catch {}
-  };
   const find = (e) => {
     e.preventDefault();
     const v = no.trim().toUpperCase();
@@ -58,7 +120,7 @@ export default function Friends({ me, toast }) {
         <p className="share-desc">친구에게 링크를 보내면 팔로우 요청을 받을 수 있어요. 내가 수락해야 내 지도가 보여요.</p>
         <div className="share-row">
           <code>{link}</code>
-          <button className="btn primary" onClick={share}>{navigator.share ? "공유" : "복사"}</button>
+          <ShareMenu me={me} link={link} toast={toast} />
         </div>
         <form className="share-row" onSubmit={find}>
           <input value={no} onChange={(e) => setNo(e.target.value)} placeholder="친구 여권번호 (M12345678)" aria-label="친구 여권번호" />
