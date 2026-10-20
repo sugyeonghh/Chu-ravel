@@ -1,0 +1,88 @@
+spring:
+  application:
+    name: churavel-map
+  profiles:
+    default: local
+  # 카카오 키 같은 비밀값은 프로젝트 루트의 .env (git 에 안 올라감, .env.example 참고) 나 환경변수로 넣는다
+  config:
+    import: optional:file:.env[.properties]
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: profile_nickname,profile_image
+            client-name: Kakao
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
+  jpa:
+    open-in-view: false
+
+server:
+  servlet:
+    session:
+      timeout: 14d
+      cookie:
+        http-only: true
+        same-site: lax
+
+churavel:
+  storage:
+    photo-dir: ./data/photos
+
+---
+# 로컬 개발: H2 파일 DB (./data/churavel.mv.db). 재시작해도 기록이 남는다.
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    # AUTO_SERVER: 서버가 켜져 있어도 IntelliJ DB 창 같은 다른 프로세스가 같은 파일을 열 수 있게 (안 그러면 "file is locked")
+    url: jdbc:h2:file:./data/churavel;MODE=MySQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+---
+# 배포: MySQL. 접속 정보는 환경변수로 넣는다.
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/churavel?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:churavel}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update   # TODO: Flyway 도입 후 validate 로 바꾸기
+
+# 리버스 프록시(HTTPS) 뒤에서 카카오 redirect-uri 의 {baseUrl} 이 https 로 잡히게
+server:
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        secure: true
+
+churavel:
+  storage:
+    photo-dir: ${PHOTO_DIR:/var/lib/churavel/photos}

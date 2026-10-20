@@ -1,0 +1,21 @@
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# 로컬 실행 데이터 (H2 DB 파일, 업로드한 사진)
+/data/
+
+# 비밀값 (카카오 키). .env.example 참고
+.env
+
+tools/map/node_modules/
+# Natural Earth 원본 (gen-countries.mjs 가 받아 둔다, 약 40MB)
+tools/map/cache/
+
+frontend/node_modules/
+frontend/dist/

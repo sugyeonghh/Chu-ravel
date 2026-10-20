@@ -1,0 +1,18 @@
+{
+  "name": "churavel-map-gen",
+  "private": true,
+  "description": "남한 시군구 topojson(2013) -> 지도 SVG path(regions.json, provs.json) + regions.csv 생성. world-atlas -> world.json + countries.csv",
+  "scripts": {
+    "gen": "node gen.js",
+    "gen:world": "node gen-world.mjs",
+    "gen:countries": "node gen-countries.mjs"
+  },
+  "dependencies": {
+    "d3-geo": "3.1.0",
+    "i18n-iso-countries": "7.14.0",
+    "topojson-client": "3.1.0",
+    "topojson-server": "3.0.1",
+    "topojson-simplify": "3.0.3",
+    "world-atlas": "2.0.2"
+  }
+}
