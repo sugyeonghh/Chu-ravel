@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 /**
  * 아이디로 가입한 사용자는 카카오 회원번호가 없다. ddl-auto: update 는 이미 있는 칼럼의 NOT NULL 을 풀지 않아서
  * 예전 DB 의 users.kakao_id 를 서버가 뜰 때 한 번 null 허용으로 바꾼다.
- * TODO: Flyway 를 들이면 이 클래스는 마이그레이션 스크립트로 옮기고 지운다.
  */
 @Component
 class UserColumnMigration implements ApplicationRunner {
