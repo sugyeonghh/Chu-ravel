@@ -22,6 +22,9 @@ export default defineConfig({
       // 문자열로 쓰면 Vite 가 changeOrigin: true 로 Host 를 8080 으로 바꿔 버린다
       "/oauth2": { target: API, changeOrigin: false },
       "/login/oauth2": { target: API, changeOrigin: false },
+      // API 명세서: http://localhost:5173/swagger-ui.html (앱과 같은 주소라 로그인 쿠키·XSRF 쿠키를 그대로 쓴다)
+      "/swagger-ui": API,
+      "/v3/api-docs": API,
     },
   },
 });

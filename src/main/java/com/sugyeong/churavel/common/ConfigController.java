@@ -1,5 +1,8 @@
 package com.sugyeong.churavel.common;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -8,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 프론트가 런타임에 받는 공개 설정 (로그인 없이). 다시 빌드하지 않고 .env·환경변수만 바꿔 쓰려고 서버에서 내려준다.
  * kakaoJsKey: 카카오톡 공유용 JavaScript 키. 브라우저에 드러나는 공개 키라 비밀이 아니다. 비어 있으면 카카오 공유를 숨긴다.
  */
+@Tag(name = "공개", description = "로그인 없이 쓰는 API")
 @RestController
 public class ConfigController {
 
@@ -20,6 +24,8 @@ public class ConfigController {
         this.config = new Config(kakaoJsKey.isBlank() ? null : kakaoJsKey);
     }
 
+    @Operation(summary = "프론트 공개 설정", description = "kakaoJsKey 가 없으면 null (카카오 공유를 숨긴다)")
+    @ApiResponse(responseCode = "200", description = "{kakaoJsKey}")
     @GetMapping("/api/config")
     public Config config() {
         return config;
