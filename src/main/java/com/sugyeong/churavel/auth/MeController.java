@@ -1,10 +1,14 @@
 package com.sugyeong.churavel.auth;
 
 import com.sugyeong.churavel.follow.FollowService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "내 여권", description = "내 프로필·프로필 사진")
 @RestController
 public class MeController {
 
@@ -18,6 +22,8 @@ public class MeController {
      * 내 여권 (닉네임·사진·여권번호·발급일). 로그인 안 했으면 401 (SecurityConfig) → 프론트가 로그인 화면을 보여준다.
      * 여권번호는 로그인할 때 발급되므로 여기서는 항상 있다.
      */
+    @Operation(summary = "내 여권", description = "로그인 안 했으면 401")
+    @ApiResponse(responseCode = "200", description = "내 여권 (relation = SELF)")
     @GetMapping("/api/me")
     public FollowService.Profile me(@AuthenticationPrincipal LoginUser me) {
         return followService.me(me.userId());

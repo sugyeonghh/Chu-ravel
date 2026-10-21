@@ -68,6 +68,7 @@ export default function WorldMap({ world, counts, wholeVisits, mapped, onPickCou
   const full = { x: 0, y: 0, w: world.w, h: world.h };
   const pz = usePanZoom(full, {
     minW: 40,
+    wheelNeedsCtrl: true,
     onHover,
     onPick: (id) => (mapped[id] ? onEnterCountry(id) : onPickCountry(id)),
   });
@@ -77,39 +78,44 @@ export default function WorldMap({ world, counts, wholeVisits, mapped, onPickCou
   const tipCount = tip && counts.get(tip.id);
   const stamped = new Set([...counts.keys(), ...wholeVisits.keys()]).size;
 
+  // 지도는 창 너비를 꽉 채운다 (높이는 지도 비율대로, 화면보다 크면 페이지가 스크롤된다).
+  // 좁은 화면에서는 최소 높이를 지키고 양옆을 잘라 보여준다 (slice, 끌어서 옆을 본다). 제목·범례·안내는 지도를 가리지 않게 바깥에
   return (
-    <div className="mapwrap world" ref={pz.wrapRef}>
-      <svg {...pz.svgProps} className={dragging ? "dragging" : ""} style={{ "--k": k }} role="img" aria-label="세계지도">
-        <Countries countries={world.countries} land={world.land} />
-        <Stamped counts={counts} byId={world.byId} />
-        <Whole visits={wholeVisits} byId={world.byId} />
-      </svg>
-      <div className="mapbar">
-        <div className="brand">
+    <section className="world-view">
+      <header className="world-head">
+        <div>
           <h1>세계지도</h1>
           <p>{stamped}개국 도장 · {readOnly ? "도장 찍힌 나라를 눌러 구경해요" : "나라를 눌러 지역에 체크인해요"}</p>
-          <Legend />
         </div>
-        <div className="zoom">
+        <Legend />
+      </header>
+      <div className="mapwrap world" ref={pz.wrapRef}>
+        <svg {...pz.svgProps} preserveAspectRatio="xMidYMid slice" className={dragging ? "dragging" : ""} style={{ "--k": k }}
+          role="img" aria-label="세계지도">
+          <Countries countries={world.countries} land={world.land} />
+          <Stamped counts={counts} byId={world.byId} />
+          <Whole visits={wholeVisits} byId={world.byId} />
+        </svg>
+        <div className="zoom world-zoom">
           <button onClick={() => pz.zoomAt(0.7)} aria-label="확대">+</button>
           <button onClick={() => pz.zoomAt(1 / 0.7)} aria-label="축소">−</button>
           <button onClick={pz.reset} aria-label="전체 보기">⤢</button>
         </div>
-      </div>
-      {tipCountry && (
-        <div className={"tip" + (tipVisit ? " rich" : "")} style={{ left: tip.x, top: tip.y }}>
-          {tipVisit?.photoUrl && <img src={tipVisit.photoUrl} alt="" />}
-          <div>
-            <b>{tipCountry.n}</b>
-            <small>
-              {mapped[tip.id]
-                ? `${tipCount ? tipCount + "/" : ""}${mapped[tip.id]}곳 · 눌러서 지역 지도로`
-                : tipVisit ? (tipVisit.title || tipVisit.date) : "나라 하나로 체크인"}
-            </small>
+        {tipCountry && (
+          <div className={"tip" + (tipVisit ? " rich" : "")} style={{ left: tip.x, top: tip.y }}>
+            {tipVisit?.photoUrl && <img src={tipVisit.photoUrl} alt="" />}
+            <div>
+              <b>{tipCountry.n}</b>
+              <small>
+                {mapped[tip.id]
+                  ? `${tipCount ? tipCount + "/" : ""}${mapped[tip.id]}곳 · 눌러서 지역 지도로`
+                  : tipVisit ? (tipVisit.title || tipVisit.date) : "나라 하나로 체크인"}
+              </small>
+            </div>
           </div>
-        </div>
-      )}
-      <div className="hint">나라를 누르면 지역 지도가 열려요 · 스크롤·핀치로 확대</div>
-    </div>
+        )}
+      </div>
+      <p className="world-hint">나라를 누르면 지역 지도가 열려요 · 끌어서 옮기고 Ctrl(⌘)+스크롤·핀치로 확대</p>
+    </section>
   );
 }

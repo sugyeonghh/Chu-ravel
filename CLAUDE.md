@@ -11,7 +11,8 @@
 
 ```bash
 ./gradlew bootRun          # API 서버 http://localhost:8080 (local 프로필, H2 파일 DB). 화면은 안 뜬다 (/ 는 404)
-cd frontend && npm run dev   # 개발할 때 여기로 접속: http://localhost:5173 (Vite, /api·/oauth2·/login/oauth2 는 8080 으로 프록시)
+cd frontend && npm run dev   # 개발할 때 여기로 접속: http://localhost:5173 (Vite, /api·/oauth2·/login/oauth2·/swagger-ui·/v3/api-docs 는 8080 으로 프록시)
+#                            API 명세서(Swagger UI): http://localhost:5173/swagger-ui.html — 앱에 로그인해 두면 Try it out 도 그 사용자로 (prod 에서는 꺼짐)
 ./gradlew test             # API 통합 테스트 (H2 메모리 DB, 임시 사진 폴더). npm 필요 없음
 ./gradlew build            # build/libs/churavel-map-*.jar — 프론트를 빌드해 jar 안에 넣는다 (배포용, 8080 하나로 화면+API)
 ./gradlew bootJar -PskipFrontend   # 프론트 없이 jar 만 (npm 없이)
@@ -25,6 +26,7 @@ cd tools/map && npm run gen:globe                 # 지구본 연출용 globe.js
 
 - Java 21, Spring Boot 4.1, Gradle(Groovy DSL, wrapper 8.14.3)
 - Spring Web MVC, Spring Data JPA(Hibernate), Bean Validation, Spring Security OAuth2 Client(카카오, 세션 쿠키)
+- API 명세서: springdoc-openapi 3.1.1 (`/swagger-ui.html`, `/v3/api-docs`). 컨트롤러에 `@Tag`·`@Operation(summary)` 를 단다
 - DB: 로컬 H2 파일(`./data/churavel.mv.db`, MODE=MySQL) / 배포 MySQL (`prod` 프로필)
 - 사진: 로컬 디스크 `./data/photos` (`PhotoStorage` 인터페이스 뒤에 숨김 → 나중에 S3/R2)
 - 프론트: `frontend/` React 19 + Vite 6 (JS, 상태 관리·라우터 라이브러리 없음, 해시 라우팅). Gradle `bootJar` 가 `npm ci` → `npm run build` 후 `frontend/dist` 를 jar 의 `static/`(`BOOT-INF/classes/static`)에 넣는다. 배포 jar 에만 들어가고 `bootRun`·IntelliJ 실행·테스트에는 안 들어간다. Node 20.15 기준이라 Vite 7 은 쓰지 않는다.
@@ -47,7 +49,7 @@ src/main/java/com/sugyeong/churavel/
   photo/    Photo(메타, ownerId), PhotoStorage/LocalPhotoStorage(파일), PhotoService, GET /api/photos/{id},
             AvatarService·AvatarController(프로필 사진 바꾸기·원래대로, GET /api/avatars/{id})
   common/   NotFoundException, ForbiddenException, UnauthorizedException, ApiExceptionHandler(ProblemDetail),
-            ConfigController(GET /api/config: 프론트 공개 설정)
+            ConfigController(GET /api/config: 프론트 공개 설정), OpenApiConfig(Swagger 명세서 제목·설명·세션 쿠키)
 src/main/resources/
   regions.csv               한국 지역 코드표 (code,name,province) — gen.js
   subdivisions.csv          다른 나라 지역 코드표 (code,name,country) — gen-countries.mjs
@@ -69,8 +71,9 @@ frontend/
   src/kakao.js              카카오톡 공유 (Kakao JS SDK 2.8.4, 처음 누를 때 SRI 붙여 받는다)
   src/WorldMap.jsx          세계지도 (지역 지도가 있는 나라 → 그 나라 지도, 없는 나라 → 나라 하나로 체크인).
                             체크인한 지역 수로 나라 색 5단계 (1 · 2–4 · 5–9 · 10–19 · 20+, CSS --h1~--h5)
+                            창 너비를 꽉 채우고 높이는 지도 비율(화면보다 길면 페이지 스크롤). 좁은 화면은 최소 높이 + 양옆 자르기(slice)
   src/MapView.jsx           나라 하나의 지역 지도 (한국 시·군·구, 일본 도도부현 …): 레이어(memo), 호버 lift, Stamp
-  src/usePanZoom.js         두 지도가 같이 쓰는 줌·팬·핀치·탭·툴팁
+  src/usePanZoom.js         두 지도가 같이 쓰는 줌·팬·핀치·탭·툴팁 (wheelNeedsCtrl: 세계지도는 Ctrl·⌘+휠만 확대, 그냥 휠은 페이지 스크롤)
   src/Ledger.jsx            지역 지도 오른쪽 장부(승차권, 검색, 최근 기록, 한국만 시·도별, 나라 하나로 남긴 예전 기록)
   src/Ticket.jsx            나라 지역 지도 화면의 열차 승차권 (출발 세계지도 → 도착 나라, 정차역=목표 개수, 절취선, 바코드)
                             테마: 여권·세계지도는 여권(남색·금박), 나라 지역 지도·그 서랍은 승차권(청록 --tk)
@@ -115,6 +118,8 @@ tools/map/                  gen.js(한국, muni.json KOSTAT 2013), gen-world.mjs
 | GET | `/api/config` | 프론트 공개 설정 `{kakaoJsKey}` (로그인 없이). 키가 없으면 null → 카카오 공유를 숨긴다 |
 
 `/api/regions`·`/api/config`·`/api/auth/**` 말고는 모두 로그인 필요 → 안 했으면 401 `"로그인이 필요해요"`. PUT·POST·DELETE 는 `XSRF-TOKEN` 쿠키 값을 `X-XSRF-TOKEN` 헤더로 보내야 한다 (`api.js` 가 처리, 없으면 403).
+새 API 를 만들면 컨트롤러에 `@Tag`(묶음), `@Operation(summary = "…")`, 그 API 만의 `@ApiResponse`(성공 200/204, 400·403·404·413 등)를 달아 Swagger 명세서에 보이게 한다.
+401(로그인)·403(CSRF, 바꾸는 요청)·4xx 본문(ProblemDetail)은 `OpenApiConfig.commonResponses` 가 모든 API 에 붙이므로 따로 적지 않는다.
 오류는 모두 `ProblemDetail` JSON. 프론트는 `detail` 을 토스트로 그대로 보여주므로 **detail 은 사용자에게 보여줄 한국어 문장**으로 쓴다.
 
 ## 규칙

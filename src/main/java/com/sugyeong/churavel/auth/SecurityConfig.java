@@ -53,6 +53,7 @@ public class SecurityConfig {
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/api/auth/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/api/config")).permitAll()
                         .requestMatchers(api).authenticated()
+                        // API 명세서 (/swagger-ui.html, /swagger-ui/**, /v3/api-docs/**) 는 anyRequest 로 열려 있다. prod 에서는 springdoc 을 끈다
                         .anyRequest().permitAll())
                 .oauth2Login(login -> login
                         .authorizationEndpoint(a -> a.authorizationRequestResolver(authorizationRequests))

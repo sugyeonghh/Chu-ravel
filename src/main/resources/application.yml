@@ -39,6 +39,16 @@ server:
         http-only: true
         same-site: lax
 
+# API 명세서 (springdoc). Swagger UI 가 XSRF-TOKEN 쿠키를 X-XSRF-TOKEN 헤더로 붙여 "Try it out" 의 PUT·POST·DELETE 도 통과한다
+springdoc:
+  swagger-ui:
+    csrf:
+      enabled: true
+    tags-sorter: alpha
+    operations-sorter: method
+    display-request-duration: true
+  default-produces-media-type: application/json
+
 churavel:
   storage:
     photo-dir: ./data/photos
@@ -76,6 +86,13 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update   # TODO: Flyway 도입 후 validate 로 바꾸기
+
+# 배포에서는 API 명세서를 열지 않는다
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
 
 # 리버스 프록시(HTTPS) 뒤에서 카카오 redirect-uri 의 {baseUrl} 이 https 로 잡히게
 server:

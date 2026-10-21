@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
  * SVG 지도 줌·팬·핀치·탭. 한국 지도와 세계지도가 같이 쓴다.
  * 지도 칸은 data-id 를 단 요소. 마우스를 올리면 onHover(id) + tip, 끌지 않고 누르면 onPick(id).
  * full: 전체 viewBox {x, y, w, h}. minW: 가장 많이 확대했을 때의 viewBox 너비.
+ * wheelNeedsCtrl: 지도가 화면보다 커서 페이지가 스크롤되는 곳(세계지도)은 그냥 휠은 페이지 스크롤로 두고 Ctrl·⌘+휠만 확대한다.
+ *   트랙패드 핀치는 브라우저가 ctrlKey 를 붙인 wheel 로 보내므로 그대로 확대된다.
  */
-export default function usePanZoom(full, { minW, onHover, onPick }) {
+export default function usePanZoom(full, { minW, onHover, onPick, wheelNeedsCtrl = false }) {
   const svgRef = useRef();
   const wrapRef = useRef();
   const vbRef = useRef(full);
@@ -44,7 +46,11 @@ export default function usePanZoom(full, { minW, onHover, onPick }) {
   // wheel 은 preventDefault 를 해야 해서 passive:false 로 직접 단다
   useEffect(() => {
     const svg = svgRef.current;
-    const onWheel = (e) => { e.preventDefault(); zoomAt(Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY); };
+    const onWheel = (e) => {
+      if (wheelNeedsCtrl && !e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      zoomAt(Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY);
+    };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
   }, []);
