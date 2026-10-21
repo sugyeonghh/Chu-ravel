@@ -189,10 +189,17 @@ article.post .body{margin-top:16px}
 .back{border:0;background:none;padding:0;margin:0 0 2px;font:inherit;font-size:12px;font-weight:700;color:var(--ink-soft);cursor:pointer}
 .back:hover{color:var(--ink)}
 
-/* world map */
-.mapwrap.world{margin:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
-.mapwrap.world svg{height:calc(100vh - 34px - var(--topbar))}
-@media (max-width:860px){.mapwrap.world svg{height:auto;aspect-ratio:1000/520;min-height:0}}
+/* world map: 창 너비를 꽉 채우고 높이는 지도 비율(1000:520). 화면보다 길면 페이지가 스크롤된다.
+   좁은 화면은 min-height 로 키우고 양옆을 잘라 보여준다 (svg preserveAspectRatio=slice) */
+.world-view{display:flex;flex-direction:column;gap:10px;
+  padding:14px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.world-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:6px 20px;padding:0 4px}
+.world-head h1{font-family:var(--f-display);font-size:26px;line-height:1.1;margin:0;font-weight:400;color:var(--ink)}
+.world-head p{margin:2px 0 0;font-size:12px;color:var(--ink-soft)}
+.world-head .legend{margin:0}
+.mapwrap.world svg{height:auto;aspect-ratio:1000/520;min-height:min(72vh,440px)}
+.world-zoom{position:absolute;top:12px;right:12px}
+.world-hint{margin:0;text-align:center;font-size:13px;color:var(--ink-soft)}
 .ct{fill:var(--land);stroke:var(--land-line);stroke-width:.5;vector-effect:non-scaling-stroke;cursor:pointer;transition:fill .15s}
 .ct:hover{fill:var(--land-hatch)}
 .ct-land{fill:var(--land-hatch);stroke:var(--land-line);stroke-width:.5;vector-effect:non-scaling-stroke;pointer-events:none}
